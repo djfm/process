@@ -6,11 +6,19 @@ class Process
 {
 	private $cwd;
 	private $env;
+	
 	private $executable;
+	private $arguments;
+	private $options;
+
+	private $process;
+	private $upid;
 
 	public function __construct($executable, array $arguments = array(), array $options = array())
 	{
 		$this->executable = $executable;
+		$this->arguments = $arguments;
+		$this->options = $options;
 	}
 
 	private static function windows()
@@ -102,11 +110,25 @@ class Process
 		}
 	}
 
-	public static function kill($upid)
+	public static function runningByUPID($upid)
 	{
 		list($pid, $creation_date, $cmd) = explode('@', $upid, 3);
-		if (static::getProcessCreationDate($pid) === $creation_date &&
-			static::getProcessCommand($pid) === $cmd)
+
+		try {
+			return 	self::getProcessCreationDate($pid) === $creation_date &&
+					self::getProcessCommand($pid) === $cmd;
+		} catch (Exception\ChildProcessNotFound $e) {
+			return false;
+		} catch (Exception\ProcessNotFound $e) {
+			return false;
+		}
+	}
+
+	public static function killByUPID($upid)
+	{
+		list($pid, $creation_date, $cmd) = explode('@', $upid, 3);
+
+		if (self::runningByUPID($upid))
 		{
 			if (self::windows())
 				exec("tskill $pid");
@@ -115,27 +137,83 @@ class Process
 		}
 	}
 
-	public function run($stdin = STDIN, $stdout = STDOUT, $stderr = STDERR)
+	private function descriptor($spec, $mode = 'w')
 	{
-		$cmd = $this->executable;
+		if ($spec === STDIN || $spec === STDOUT)
+			return $spec;
+		else if (is_string($spec))
+			return ['file', $spec, $mode];
+		else if ($spec)
+			return $spec;
+		else {
+			if (self::windows())
+				return ['file', 'NUL', $mode];
+			else
+				return ['file', '/dev/null', $mode];
+		}
+
+	}
+
+	public function run($stdin = STDIN, $stdout = null, $stderr = null)
+	{
+		$cmd = escapeshellarg($this->executable);
+
+		$parts = array_map('escapeshellarg', $this->arguments);
+
+		foreach ($this->options as $key => $value)
+		{
+			$parts[] = escapeshellcmd($key);
+			$parts[] = escapeshellarg($value);
+		}
+
+		$cmd .= ' ' . implode(' ', $parts);
 
 		$dspec = [
 			$stdin,
-			$stdout,
-			$stderr
+			$this->descriptor($stdout, 'w'),
+			$this->descriptor($stderr, 'w')
 		];
 
 		$pipes = [];
 
-		$process = proc_open($cmd, $dspec, $pipes, $this->cwd, $this->env);
+		$this->process = proc_open($cmd, $dspec, $pipes, $this->cwd, $this->env);
 
-		$pid = proc_get_status($process)['pid'];
+		if ($this->process === false)
+			throw new Exception\CouldNotStartProcess();
+
+		$pid = proc_get_status($this->process)['pid'];
+
 		$child_pid = self::getChildPID($pid);
 		$creation_date = self::getProcessCreationDate($child_pid);
 		$command = self::getProcessCommand($child_pid);
 
-		$upid = "$child_pid@$creation_date@$command";
+		$this->upid = "$child_pid@$creation_date@$command";
 
-		return $upid;
+		return $this->upid;
+	}
+
+	public function kill()
+	{
+		if ($this->running())
+		{
+			proc_terminate($this->process);
+			$this->process = null;
+
+			try {
+				self::killByUPID($this->upid);
+			} catch (Exception\ChildProcessNotFound $e) {
+				// maybe terminate killed it
+			} catch (Exception\ProcessNotFound $e) {
+				// maybe terminate killed it
+			}
+		}
+	}
+
+	public function running()
+	{
+		if (!$this->process)
+			return false;
+
+		return proc_get_status($this->process)['running'];
 	}
 }
