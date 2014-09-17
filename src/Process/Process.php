@@ -58,7 +58,7 @@ class Process
 	{
 		if (self::windows())
 		{
-			$command = "wmic process where (ProcessId=$pid) get CreationDate";
+			$command = "wmic process where (ProcessId=$pid) get Name";
 			$output = [];
 			exec($command, $output);
 			return $output[1];
