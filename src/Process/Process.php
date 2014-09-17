@@ -13,12 +13,14 @@ class Process
 
 	private $process;
 	private $upid;
+	private $settings;
 
-	public function __construct($executable, array $arguments = array(), array $options = array())
+	public function __construct($executable, array $arguments = array(), array $options = array(), array $settings = array())
 	{
 		$this->executable = $executable;
 		$this->arguments = $arguments;
 		$this->options = $options;
+		$this->settings = $settings;
 	}
 
 	private static function windows()
@@ -158,12 +160,20 @@ class Process
 	{
 		$cmd = escapeshellcmd($this->executable);
 
-		$parts = array_map('escapeshellarg', $this->arguments);
+		$parts = [];
 
 		foreach ($this->options as $key => $value)
 		{
 			$parts[] = escapeshellcmd($key);
 			$parts[] = escapeshellcmd($value);
+		}
+
+		foreach ($this->arguments as $a)
+		{
+			if ($a === '<')
+				$parts[] = $a;
+			else
+				$parts[] = escapeshellarg($a);
 		}
 
 		$cmd .= ' ' . implode(' ', $parts);
@@ -180,6 +190,11 @@ class Process
 
 		if ($this->process === false)
 			throw new Exception\CouldNotStartProcess();
+
+		if (!empty($this->settings['wait']))
+		{
+			return proc_close($this->process);
+		}
 
 		$pid = proc_get_status($this->process)['pid'];
 		$child_pid = self::getChildPID($pid);
