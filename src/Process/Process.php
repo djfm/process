@@ -182,7 +182,6 @@ class Process
 			throw new Exception\CouldNotStartProcess();
 
 		$pid = proc_get_status($this->process)['pid'];
-
 		$child_pid = self::getChildPID($pid);
 		$creation_date = self::getProcessCreationDate($child_pid);
 		$command = self::getProcessCommand($child_pid);
