@@ -35,7 +35,13 @@ class Process
 		{
 			$command = "pgrep -P $pid";
 			$output = [];
-			exec($command, $output);
+
+			$ret = 1;
+			exec($command, $output, $ret);
+
+			if ($ret !== 0)
+				throw new Exception\ChildProcessNotFound();
+
 			return (int)$output[0];
 		}
 	}
@@ -57,7 +63,13 @@ class Process
 		{
 			$command = "ps -p $pid -wo lstart";
 			$output = [];
-			exec($command, $output);
+
+			$ret = 1;
+			exec($command, $output, $ret);
+
+			if ($ret !== 0)
+				throw new Exception\ProcessNotFound();
+
 			return $output[1];
 		}
 	}
@@ -79,7 +91,13 @@ class Process
 		{
 			$command = "ps -p $pid -wo cmd";
 			$output = [];
-			exec($command, $output);
+
+			$ret = 1;
+			exec($command, $output, $ret);
+			
+			if ($ret !== 0)
+				throw new Exception\ProcessNotFound();
+			
 			return $output[1];
 		}
 	}
