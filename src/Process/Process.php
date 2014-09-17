@@ -18,13 +18,17 @@ class Process
 		return preg_match('/^WIN/', PHP_OS);
 	}
 
-	private static function getChildPID($pid)
+	public static function getChildPID($pid)
 	{
 		if (self::windows())
 		{
-			$command = "wmic process where (ParentProcessId=$pid) get ProcessId";
+			$command = "wmic process where (ParentProcessId=$pid) get ProcessId 2>NUL";
 			$output = [];
 			exec($command, $output);
+
+			if (!preg_match('/^\d+$/', $output[1]))
+				throw new Exception\ChildProcessNotFound();
+
 			return (int)$output[1];
 		}
 		else
@@ -36,13 +40,17 @@ class Process
 		}
 	}
 
-	private static function getProcessCreationDate($pid)
+	public static function getProcessCreationDate($pid)
 	{
 		if (self::windows())
 		{
-			$command = "wmic process where (ProcessId=$pid) get CreationDate";
+			$command = "wmic process where (ProcessId=$pid) get CreationDate 2>NUL";
 			$output = [];
 			exec($command, $output);
+
+			if (preg_match('/^\s*$/', $output[1]))
+				throw new Exception\ProcessNotFound();
+
 			return $output[1];
 		}
 		else
@@ -54,13 +62,17 @@ class Process
 		}
 	}
 
-	private static function getProcessCommand($pid)
+	public static function getProcessCommand($pid)
 	{
 		if (self::windows())
 		{
 			$command = "wmic process where (ProcessId=$pid) get Name";
 			$output = [];
 			exec($command, $output);
+
+			if (preg_match('/^\s*$/', $output[1]))
+				throw new Exception\ProcessNotFound();
+
 			return $output[1];
 		}
 		else
