@@ -85,14 +85,14 @@ class Process
 		}
 	}
 
-	public function run()
+	public function run($stdin = STDIN, $stdout = STDOUT, $stderr = STDERR)
 	{
 		$cmd = $this->executable;
 
 		$dspec = [
-			STDIN,
-			STDOUT,
-			STDERR
+			$stdin,
+			$stdout,
+			$stderr
 		];
 
 		$pipes = [];
