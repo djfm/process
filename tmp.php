@@ -5,6 +5,8 @@
 
 require __DIR__.'/vendor/autoload.php';
 
-$p = new \djfm\Process\Process('sleep 1000');
+$p = new \djfm\Process\Process('timeout 60 > NUL');
 
-$p->run();
+$upid = $p->run();
+
+\djfm\Process\Process::kill($upid);
