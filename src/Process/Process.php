@@ -156,14 +156,14 @@ class Process
 
 	public function run($stdin = STDIN, $stdout = null, $stderr = null)
 	{
-		$cmd = escapeshellarg($this->executable);
+		$cmd = escapeshellcmd($this->executable);
 
 		$parts = array_map('escapeshellarg', $this->arguments);
 
 		foreach ($this->options as $key => $value)
 		{
 			$parts[] = escapeshellcmd($key);
-			$parts[] = escapeshellarg($value);
+			$parts[] = escapeshellcmd($value);
 		}
 
 		$cmd .= ' ' . implode(' ', $parts);
