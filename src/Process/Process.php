@@ -29,7 +29,10 @@ class Process
 		}
 		else
 		{
-			echo "NIY\n";
+			$command = "pgrep -P $pid";
+			$output = [];
+			exec($command, $output);
+			return (int)$output[0];
 		}
 	}
 
@@ -44,24 +47,47 @@ class Process
 		}
 		else
 		{
-			echo "NIY\n";
+			$command = "ps -p $pid -wo lstart";
+			$output = [];
+			exec($command, $output);
+			return $output[1];
+		}
+	}
+
+	private static function getProcessCommand($pid)
+	{
+		if (self::windows())
+		{
+			$command = "wmic process where (ProcessId=$pid) get CreationDate";
+			$output = [];
+			exec($command, $output);
+			return $output[1];
+		}
+		else
+		{
+			$command = "ps -p $pid -wo cmd";
+			$output = [];
+			exec($command, $output);
+			return $output[1];
 		}
 	}
 
 	public static function kill($upid)
 	{
-		if (self::windows())
+		list($pid, $creation_date, $cmd) = explode('@', $upid, 3);
+		if (static::getProcessCreationDate($pid) === $creation_date &&
+			static::getProcessCommand($pid) === $cmd)
 		{
-			list($pid, $creation_date) = explode('@', $upid);
-			if (static::getProcessCreationDate($pid) === $creation_date)
+			if (self::windows())
 				exec("tskill $pid");
+			else
+				exec("kill $pid");
 		}
 	}
 
 	public function run()
 	{
 		$cmd = $this->executable;
-
 
 		$dspec = [
 			STDIN,
@@ -76,11 +102,10 @@ class Process
 		$pid = proc_get_status($process)['pid'];
 		$child_pid = self::getChildPID($pid);
 		$creation_date = self::getProcessCreationDate($child_pid);
+		$command = self::getProcessCommand($child_pid);
 
-		$upid = "$child_pid@$creation_date";
+		$upid = "$child_pid@$creation_date@$command";
 
-		echo "$upid\n";
-		
 		return $upid;
 	}
 }
