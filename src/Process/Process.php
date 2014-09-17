@@ -156,7 +156,7 @@ class Process
 
 	}
 
-	public function run($stdin = STDIN, $stdout = null, $stderr = null)
+	public function getCommand()
 	{
 		$cmd = escapeshellcmd($this->executable);
 
@@ -170,7 +170,7 @@ class Process
 
 		foreach ($this->arguments as $a)
 		{
-			if ($a === '<')
+			if ($a === '<' || $a === '>')
 				$parts[] = $a;
 			else
 				$parts[] = escapeshellarg($a);
@@ -178,15 +178,24 @@ class Process
 
 		$cmd .= ' ' . implode(' ', $parts);
 
+		return $cmd;
+	}
+
+	public function run($stdin = STDIN, $stdout = null, $stderr = null, $settings = array())
+	{
+		$this->settings = array_merge($this->settings, $settings);
+
+		$cmd = $this->getCommand();
+
 		$dspec = [
 			$stdin,
 			$this->descriptor($stdout, 'w'),
 			$this->descriptor($stderr, 'w')
 		];
 
-		$pipes = [];
+		$this->pipes = [];
 
-		$this->process = proc_open($cmd, $dspec, $pipes, $this->cwd, $this->env);
+		$this->process = proc_open($cmd, $dspec, $this->pipes, $this->cwd, $this->env);
 
 		if ($this->process === false)
 			throw new Exception\CouldNotStartProcess();
@@ -204,6 +213,12 @@ class Process
 		$this->upid = "$child_pid@$creation_date@$command";
 
 		return $this->upid;
+	}
+
+	public function pipe($p1, $p2, $stdin = STDIN, $stdout = null, $stderr = null)
+	{
+		$p1->run($stdin, ['pipe', 'w'], $stderr, ['wait' => false]);
+		return $p2->run($p1->pipes[1], $stdout, $stderr, ['wait' => true]);
 	}
 
 	public function kill()
