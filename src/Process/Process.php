@@ -4,8 +4,8 @@ namespace djfm\Process;
 
 class Process
 {
-	private $cwd;
-	private $env;
+	private $cwd = null;
+	private $env = [];
 	
 	private $executable;
 	private $arguments;
@@ -164,8 +164,14 @@ class Process
 
 		foreach ($this->options as $key => $value)
 		{
-			$parts[] = escapeshellcmd($key);
-			$parts[] = escapeshellcmd($value);
+			if (preg_match('/^-\w$/', $key) && $value !== '')
+				$parts[] = escapeshellcmd($key).escapeshellcmd($value);
+			else
+			{
+				$parts[] = escapeshellcmd($key);
+				if ($value !== '')
+					$parts[] = escapeshellcmd($value);
+			}
 		}
 
 		foreach ($this->arguments as $a)
@@ -195,7 +201,12 @@ class Process
 
 		$this->pipes = [];
 
-		$this->process = proc_open($cmd, $dspec, $this->pipes, $this->cwd, $this->env);
+		$env = array_merge($_SERVER, $_ENV, $this->env);
+		foreach ($env as $k => $v)
+			if (!is_scalar($v))
+				unset($env[$k]);
+
+		$this->process = proc_open($cmd, $dspec, $this->pipes, $this->cwd, $env);
 
 		if ($this->process === false)
 			throw new Exception\CouldNotStartProcess();
@@ -244,5 +255,11 @@ class Process
 			return false;
 
 		return proc_get_status($this->process)['running'];
+	}
+
+	public function setEnv($param, $value)
+	{
+		$this->env[$param] = $value;
+		return $this;
 	}
 }
