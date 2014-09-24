@@ -166,6 +166,8 @@ class Process
 		{
 			if (preg_match('/^-\w$/', $key) && $value !== '')
 				$parts[] = escapeshellcmd($key).escapeshellcmd($value);
+			elseif (preg_match('/^--\w+/', $key))
+				$parts[] = escapeshellcmd($key)."=".escapeshellcmd($value);
 			else
 			{
 				$parts[] = escapeshellcmd($key);
