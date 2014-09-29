@@ -23,6 +23,12 @@ class Process
 		$this->settings = $settings;
 	}
 
+	public function setWorkingDir($wd)
+	{
+		$this->cwd = $wd;
+		return $this;
+	}
+
 	private static function windows()
 	{
 		return preg_match('/^WIN/', PHP_OS);
@@ -144,7 +150,11 @@ class Process
 		if ($spec === STDIN || $spec === STDOUT)
 			return $spec;
 		else if (is_string($spec))
+		{
+			if ($mode === 'w' && !file_exists($spec))
+				touch($spec);
 			return ['file', $spec, $mode];
+		}
 		else if ($spec)
 			return $spec;
 		else {
@@ -196,7 +206,7 @@ class Process
 		$cmd = $this->getCommand();
 
 		$dspec = [
-			$stdin,
+			$this->descriptor($stdout, 'r'),
 			$this->descriptor($stdout, 'w'),
 			$this->descriptor($stderr, 'w')
 		];
