@@ -6,7 +6,7 @@ class Process
 {
 	private $cwd = null;
 	private $env = [];
-	
+
 	private $executable;
 	private $arguments;
 	private $options;
@@ -20,7 +20,9 @@ class Process
 		$this->executable = $executable;
 		$this->arguments = $arguments;
 		$this->options = $options;
-		$this->settings = $settings;
+		$this->settings = array_merge([
+			'upid' => false
+		], $settings);
 	}
 
 	public function setWorkingDir($wd)
@@ -110,10 +112,10 @@ class Process
 
 			$ret = 1;
 			exec($command, $output, $ret);
-			
+
 			if ($ret !== 0)
 				throw new Exception\ProcessNotFound();
-			
+
 			return $output[1];
 		}
 	}
@@ -181,8 +183,9 @@ class Process
 			else
 			{
 				$parts[] = escapeshellcmd($key);
-				if ($value !== '')
+				if ($value !== '') {
 					$parts[] = escapeshellcmd($value);
+				}
 			}
 		}
 
@@ -201,7 +204,7 @@ class Process
 
 	public function run($stdin = STDIN, $stdout = null, $stderr = null, $settings = array())
 	{
-		$this->settings = array_merge($this->settings, $settings);
+		$settings = array_merge($this->settings, $settings);
 
 		$cmd = $this->getCommand();
 
@@ -223,9 +226,13 @@ class Process
 		if ($this->process === false)
 			throw new Exception\CouldNotStartProcess();
 
-		if (!empty($this->settings['wait']))
+		if (!empty($settings['wait']))
 		{
 			return proc_close($this->process);
+		}
+
+		if (empty($settings['upid'])) {
+			return $this;
 		}
 
 		$pid = proc_get_status($this->process)['pid'];
@@ -235,6 +242,11 @@ class Process
 
 		$this->upid = "$child_pid@$creation_date@$command";
 
+		return $this->upid;
+	}
+
+	public function getUPID()
+	{
 		return $this->upid;
 	}
 
@@ -251,22 +263,30 @@ class Process
 			proc_terminate($this->process);
 			$this->process = null;
 
-			try {
-				self::killByUPID($this->upid);
-			} catch (Exception\ChildProcessNotFound $e) {
-				// maybe terminate killed it
-			} catch (Exception\ProcessNotFound $e) {
-				// maybe terminate killed it
+			if ($this->upid) {
+				try {
+					self::killByUPID($this->upid);
+				} catch (Exception\ChildProcessNotFound $e) {
+					// maybe terminate killed it
+				} catch (Exception\ProcessNotFound $e) {
+					// maybe terminate killed it
+				}
 			}
+		}
+	}
+
+	public function getStatus()
+	{
+		if ($this->process) {
+			return proc_get_status($this->process);
+		} else {
+			return ['running' => false];
 		}
 	}
 
 	public function running()
 	{
-		if (!$this->process)
-			return false;
-
-		return proc_get_status($this->process)['running'];
+		return $this->getStatus()['running'];
 	}
 
 	public function setEnv($param, $value)
