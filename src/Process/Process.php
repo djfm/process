@@ -2,6 +2,10 @@
 
 namespace djfm\Process;
 
+use djfm\Process\Exception\ChildProcessNotFound;
+use djfm\Process\Exception\CouldNotStartProcess;
+use djfm\Process\Exception\ProcessNotFound;
+
 class Process
 {
 	private $cwd = null;
@@ -44,8 +48,9 @@ class Process
 			$output = [];
 			exec($command, $output);
 
-			if (!preg_match('/^\d+$/', $output[1]))
-				throw new Exception\ChildProcessNotFound();
+			if (!preg_match('/^\d+$/', $output[1])) {
+				throw new ChildProcessNotFound();
+			}
 
 			return (int)$output[1];
 		}
@@ -57,8 +62,9 @@ class Process
 			$ret = 1;
 			exec($command, $output, $ret);
 
-			if ($ret !== 0)
-				throw new Exception\ChildProcessNotFound();
+			if ($ret !== 0) {
+				throw new ChildProcessNotFound();
+			}
 
 			return (int)$output[0];
 		}
@@ -73,7 +79,7 @@ class Process
 			exec($command, $output);
 
 			if (preg_match('/^\s*$/', $output[1]))
-				throw new Exception\ProcessNotFound();
+				throw new ProcessNotFound();
 
 			return $output[1];
 		}
@@ -86,7 +92,7 @@ class Process
 			exec($command, $output, $ret);
 
 			if ($ret !== 0)
-				throw new Exception\ProcessNotFound();
+				throw new ProcessNotFound();
 
 			return $output[1];
 		}
@@ -101,7 +107,7 @@ class Process
 			exec($command, $output);
 
 			if (preg_match('/^\s*$/', $output[1]))
-				throw new Exception\ProcessNotFound();
+				throw new ProcessNotFound();
 
 			return $output[1];
 		}
@@ -114,7 +120,7 @@ class Process
 			exec($command, $output, $ret);
 
 			if ($ret !== 0)
-				throw new Exception\ProcessNotFound();
+				throw new ProcessNotFound();
 
 			return $output[1];
 		}
@@ -127,9 +133,9 @@ class Process
 		try {
 			return 	self::getProcessCreationDate($pid) === $creation_date &&
 					self::getProcessCommand($pid) === $cmd;
-		} catch (Exception\ChildProcessNotFound $e) {
+		} catch (ChildProcessNotFound $e) {
 			return false;
-		} catch (Exception\ProcessNotFound $e) {
+		} catch (ProcessNotFound $e) {
 			return false;
 		}
 	}
@@ -189,12 +195,12 @@ class Process
 			}
 		}
 
-		foreach ($this->arguments as $a)
-		{
-			if ($a === '<' || $a === '>')
+		foreach ($this->arguments as $a) {
+			if ($a === '<' || $a === '>') {
 				$parts[] = $a;
-			else
+			} else {
 				$parts[] = escapeshellarg($a);
+			}
 		}
 
 		$cmd .= ' ' . implode(' ', $parts);
@@ -209,7 +215,7 @@ class Process
 		$cmd = $this->getCommand();
 
 		$dspec = [
-			$this->descriptor($stdout, 'r'),
+			$this->descriptor($stdin, 'r'),
 			$this->descriptor($stdout, 'w'),
 			$this->descriptor($stderr, 'w')
 		];
@@ -217,17 +223,19 @@ class Process
 		$this->pipes = [];
 
 		$env = array_merge($_SERVER, $_ENV, $this->env);
-		foreach ($env as $k => $v)
-			if (!is_scalar($v))
+		foreach ($env as $k => $v) {
+			if (!is_scalar($v)) {
 				unset($env[$k]);
+			}
+		}
 
 		$this->process = proc_open($cmd, $dspec, $this->pipes, $this->cwd, $env);
 
-		if ($this->process === false)
-			throw new Exception\CouldNotStartProcess();
+		if ($this->process === false) {
+			throw new CouldNotStartProcess();
+		}
 
-		if (!empty($settings['wait']))
-		{
+		if (!empty($settings['wait'])) {
 			return proc_close($this->process);
 		}
 
@@ -236,6 +244,7 @@ class Process
 		}
 
 		$pid = proc_get_status($this->process)['pid'];
+
 		$child_pid = self::getChildPID($pid);
 		$creation_date = self::getProcessCreationDate($child_pid);
 		$command = self::getProcessCommand($child_pid);
@@ -266,9 +275,9 @@ class Process
 			if ($this->upid) {
 				try {
 					self::killByUPID($this->upid);
-				} catch (Exception\ChildProcessNotFound $e) {
+				} catch (ChildProcessNotFound $e) {
 					// maybe terminate killed it
-				} catch (Exception\ProcessNotFound $e) {
+				} catch (ProcessNotFound $e) {
 					// maybe terminate killed it
 				}
 			}
